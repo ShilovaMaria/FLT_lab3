@@ -1,3 +1,4 @@
+
 class LR0Parser:
     def __init__(self, grammar):
         self.grammar = grammar
@@ -67,59 +68,60 @@ class LR0Parser:
         return symbols
 
     def parse(self, input_string):
-        stack = [frozenset(self.states[0])]
-        input_string = input_string + '$'
-        index = 0
+        return self.parse_recursive([frozenset(self.states[0])], input_string+'$', 0)
 
-        while stack:
-            state = stack[-1]
-            current_symbol = input_string[index]
+    def parse_recursive(self, stack, input_string, index):
 
-            if stack and stack[-1] == frozenset({(self.special_rule, 1)}):
-                if current_symbol == '$':
-                    return True
-                else:
-                    return False
+        state = stack[-1]
+        current_symbol = input_string[index]
 
-            if index >= len(input_string):
-                break
-            next_state = self.transitions.get((state, current_symbol))
-
-            if next_state:
-                stack.append(frozenset(next_state))
-                index += 1
+        if stack and stack[-1] == frozenset({(self.special_rule, 1)}):
+            if current_symbol == '$':
+                return True
             else:
-                if any(item[1] == len(item[0][1]) for item in state):
-                    for item in state:
-                        if item[1] == len(item[0][1]):
-                            non_terminal = item[0][0]
-                            production = item[0]
-                            # Снимаем со стека количество состояний, равное длине правой части правила
-                            for _ in range(len(production[1])):
-                                stack.pop()
-                            if stack:
-                                prev_state = stack[-1]
-                                next_state = self.transitions.get((prev_state, non_terminal))
-                                if next_state:
-                                    stack.append(frozenset(next_state))
-                                else:
-                                    return False
-                            else:
-                                return False
-                else:
-                    return False
+                return False
 
+        next_state = self.transitions.get((state, current_symbol))
+
+        if next_state:
+            stack.append(frozenset(next_state))
+            original_stack = stack.copy()
+            if self.parse_recursive(stack, input_string, index + 1):
+                return True
+            stack = original_stack
+
+        # Проверка всех возможных редукций
+        for item in state:
+            if item[1] == len(item[0][1]):
+                non_terminal = item[0][0]
+                production = item[0]
+                # Сохраняем текущее состояние стека
+                original_stack = stack.copy()
+                # Снимаем со стека количество состояний, равное длине правой части правила
+                for _ in range(len(production[1])):
+                    stack.pop()
+                if stack:
+                    prev_state = stack[-1]
+                    next_state = self.transitions.get((prev_state, non_terminal))
+                    if next_state:
+                        stack.append(frozenset(next_state))
+                        if self.parse_recursive(stack, input_string, index):
+                            return True
+                        # Восстанавливаем состояние стека
+                        stack = original_stack
         return False
+
 
 # Пример использования
 grammar = [
-    ('S', 'aSa'),
+    ('S', 'aSb'),
     ('S', 'A'),
-    ('A', 'bAb'),
-    ('A', 'c')
+    ('S', 'c'),
+    ('A', 'aA'),
+    ('A', 'cb')
 ]
 
 parser = LR0Parser(grammar)
-input_string = "abcba"
+input_string = "aaaaaacbb"
 result = parser.parse(input_string)
 print("Parse Result:", result)
