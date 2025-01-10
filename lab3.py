@@ -118,8 +118,39 @@ class LR0Parser:
                         stack = original_stack
 
         return False
-
+# Приведение грамматики к удобному виду
+def input_grammar(strings):
+    non_terminals = set()
+    for s in strings:
+        non_terminal = s[:s.find('-')]
+        non_terminals.add(non_terminal)
+    grammar = []
+    for s in strings:
+        div = s.find('-')
+        non_terminal = s[:div]
+        div += 2
+        rules = s[div:] + '|'
+        div = 0
+        rule = []
+        while rules != "":
+            if rules[div] == '|':
+                grammar.append((non_terminal, tuple(rule)))
+                rules = rules[div + 1:]
+                div = 0
+                rule = []
+            elif rules[div].islower():
+                rule.append(rules[div])
+                div += 1
+            else:
+                symbol = rules[div]
+                div += 1
+                while (not (symbol in non_terminals)) or ((div < len(rules)) and (rules[div].isdigit())):
+                    symbol = symbol + rules[div]
+                    div += 1
+                rule.append(symbol)
+    return grammar
 # Пример использования
+'''
 grammar = [
     ('S', ('a', 'S', 'b',)),
     ('S', ('c',)),
@@ -129,7 +160,9 @@ grammar = [
     ('A2', ('c', 'A2',)),
     ('A2', ('b',))
 ]
-
+'''
+grammar1=["S->aSb|c|A1", "A1->aA1|A2", "A2->cA2|b"]
+grammar=input_grammar(grammar1)
 parser = LR0Parser(grammar)
 input_string = "aaaaaacbb"
 result = parser.parse(input_string)
