@@ -1,10 +1,10 @@
-
 class LR0Parser:
     def __init__(self, grammar):
         self.grammar = grammar
         self.states = []
         self.transitions = {}
         self.special_rule = None
+        self.non_terminals = set()
         self.build_automaton()
 
     def build_automaton(self):
@@ -17,10 +17,14 @@ class LR0Parser:
             n += 1
             new_start_symbol = new_start_symbol[:1] + str(n)
 
+
         # Добавляем новое правило в грамматику
-        new_rule = (new_start_symbol, self.grammar[0][0])
+        new_rule = (new_start_symbol, (self.grammar[0][0]))
         self.grammar.append(new_rule)
         self.special_rule = new_rule
+
+        # Сохраняем все уникальные нетерминалы
+        self.non_terminals = {rule[0] for rule in self.grammar}
 
         # Инициализация начального состояния
         start_state = self.closure({(new_rule, 0)})
@@ -40,15 +44,17 @@ class LR0Parser:
             new_items = set(closure_set)
             for item in closure_set:
                 production, dot_position = item
+                #print(dot_position, len(production[1]), production)
                 if dot_position < len(production[1]):
                     next_symbol = production[1][dot_position]
-                    if next_symbol.isupper():  # Проверка, является ли следующий символ нетерминалом
+                    if self.is_non_terminal(next_symbol):  # Проверка, является ли следующий символ нетерминалом
                         for prod in self.grammar:
                             if prod[0] == next_symbol:
                                 new_items.add((prod, 0))
             if new_items == closure_set:
                 break
             closure_set = new_items
+
         return closure_set
 
     def goto(self, state, symbol):
@@ -67,14 +73,16 @@ class LR0Parser:
                 symbols.add(production[1][dot_position])
         return symbols
 
+    def is_non_terminal(self, symbol):
+        # Проверка, является ли символ нетерминалом
+        return symbol in self.non_terminals
+
     def parse(self, input_string):
-        return self.parse_recursive([frozenset(self.states[0])], input_string+'$', 0)
+        return self.parse_recursive([frozenset(self.states[0])], input_string + '$', 0)
 
     def parse_recursive(self, stack, input_string, index):
-
         state = stack[-1]
         current_symbol = input_string[index]
-
         if stack and stack[-1] == frozenset({(self.special_rule, 1)}):
             if current_symbol == '$':
                 return True
@@ -82,10 +90,9 @@ class LR0Parser:
                 return False
 
         next_state = self.transitions.get((state, current_symbol))
-
         if next_state:
-            stack.append(frozenset(next_state))
             original_stack = stack.copy()
+            stack.append(frozenset(next_state))
             if self.parse_recursive(stack, input_string, index + 1):
                 return True
             stack = original_stack
@@ -98,7 +105,7 @@ class LR0Parser:
                 # Сохраняем текущее состояние стека
                 original_stack = stack.copy()
                 # Снимаем со стека количество состояний, равное длине правой части правила
-                for _ in range(len(production[1])):
+                for symbol in production[1]:
                     stack.pop()
                 if stack:
                     prev_state = stack[-1]
@@ -109,16 +116,18 @@ class LR0Parser:
                             return True
                         # Восстанавливаем состояние стека
                         stack = original_stack
-        return False
 
+        return False
 
 # Пример использования
 grammar = [
-    ('S', 'aSb'),
-    ('S', 'A'),
-    ('S', 'c'),
-    ('A', 'aA'),
-    ('A', 'cb')
+    ('S', ('a', 'S', 'b',)),
+    ('S', ('c',)),
+    ('S', ('A1',)),
+    ('A1', ('a', 'A1',)),
+    ('A1', ('A2',)),
+    ('A2', ('c', 'A2',)),
+    ('A2', ('b',))
 ]
 
 parser = LR0Parser(grammar)
